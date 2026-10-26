@@ -1,15 +1,18 @@
 name: CI
 
 on:
-  push:
-  pull_request:
-  schedule:
-    - cron: '0 0 * * 3'
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: 'Optional mocha test file(s) to run instead of the full suite'
+        required: false
+        default: ''
 
 jobs:
   test:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
       matrix:
@@ -27,12 +30,24 @@ jobs:
     - run: npm install
 
     - name: Test
-      run: npm test
+      run: |
+        if [ -n "${{ inputs.test-filter }}" ]; then
+          npx mocha ${{ inputs.test-filter }}
+        else
+          npm test
+        fi
 
     - name: Create coverage report
       run: npm run report-coveralls
 
-    - name: Upload coverage report to coveralls.io
-      uses: coverallsapp/github-action@v1.1.2
+    - name: Pack
+      if: matrix.node-version == '16'
+      run: npm pack
+
+    - name: Upload package
+      if: matrix.node-version == '16'
+      uses: actions/upload-artifact@v4
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        name: probe-image-size-tgz
+        path: probe-image-size-*.tgz
+        if-no-files-found: error
