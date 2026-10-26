@@ -79,6 +79,26 @@ describe('probeHttp', function () {
     );
   });
 
+  it('ReDoS: should not hang on svg with many `<` without `>`', async function () {
+    responder = function (req, res) {
+      res.writeHead(200);
+      res.write('<svg');
+
+      for (let i = 0; i < 16; i++) res.write('<a'.repeat(4096));
+
+      // response never ends
+    };
+
+    let start = Date.now();
+
+    await assert.rejects(
+      async () => probe(url),
+      /unrecognized file format/
+    );
+
+    assert.ok(Date.now() - start < 1000, 'svg parser is too slow: ' + (Date.now() - start) + 'ms');
+  });
+
   it('should fail on 404', async function () {
     responder = function (req, res) {
       res.writeHead(404);
